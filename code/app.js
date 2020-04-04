@@ -15,6 +15,14 @@ var budgetController = (function() {
         this.value = value;
     };
 
+    var caculateTotal = function(type) { //exp or inc
+        var sum = 0;
+        data.allItems[type].forEach(function(current) {
+            sum = sum + current.value;
+        });
+        data.totals[type] = sum;
+    };
+
     var data = {
         allItems: {
             exp: [],
@@ -24,7 +32,9 @@ var budgetController = (function() {
         totals: {
             exp: 0,
             inc: 0
-        }
+        },
+        budget: 0,
+        percentage: -1
     }
 
     return {
@@ -52,13 +62,39 @@ var budgetController = (function() {
             return newItem; // đùng để hiện lên giao diện khi thêm
         },
 
+        caculateBudget: function() {
+            //caculate total income and expenses
+            caculateTotal('exp');
+            caculateTotal('inc');
+
+            //tính lại số dư
+            data.budget = data.totals.inc - data.totals.exp;
+
+            //tính phần trăm số đã tiêu
+            if (data.totals.inc > 0) {
+                data.percentage = Math.round((data.totals.exp / data.totals.inc) * 100);
+            } else {
+                data.percentage = -1;
+            }
+
+
+        },
+
+        getBudget: function() {
+            return {
+                budget: data.budget,
+                totalInc: data.totals.inc,
+                totalExp: data.totals.exp,
+                percentage: data.percentage
+            }
+        },
+
         testing: function() {
             console.log(data);
         }
+
+
     }
-
-
-
 })();
 
 
@@ -82,7 +118,7 @@ var UIController = (function() {
             return {
                 type: document.querySelector(DOMstrings.inputType).value,
                 description: document.querySelector(DOMstrings.inputDescription).value,
-                value: document.querySelector(DOMstrings.inputValue).value
+                value: parseFloat(document.querySelector(DOMstrings.inputValue).value) // convert to float để tính toán
             }
         },
 
@@ -124,10 +160,24 @@ var UIController = (function() {
             //show newHtml use DOM
             document.querySelector(element).insertAdjacentHTML('beforeend', newHtml); //thêm vào sau khối trước trong cùng 1 khối element
 
+
         },
 
         getDOMstrings: function() {
             return DOMstrings;
+        },
+
+        clearField: function() {
+            var fields, fieldArray;
+
+            fields = document.querySelectorAll(DOMstrings.inputDescription + ', ' + DOMstrings.inputValue);
+
+            fieldArray = Array.prototype.slice.call(fields); // slice cắt thành mảng mới
+
+            fieldArray.forEach(function(current, index, array) {
+                current.value = "";
+            });
+            fieldArray[0].focus();
         }
     }
 
@@ -151,18 +201,35 @@ var controller = (function(budgetCtrl, UICtrl) {
         });
     }
 
+    var updateBudget = function() {
+        // caculate the budget
+        budgetCtrl.caculateBudget();
+
+        // return the budget
+        var budget = budgetCtrl.getBudget();
+
+        // Display the budget on the UI
+        console.log(budget);
+    };
+
     var ctrlAddItem = function() {
         //1. get the field
         var input = UICtrl.getInput();
 
-        //2. Add the item to the budgetController
-        var newItem = budgetCtrl.addItem(input.type, input.description, input.value);
+        if (input.description !== '' && !isNaN(input.value) && input.value > 0) { //isNaN true nếu là chuỗi, flase nếu là số
+            //2. Add the item to the budgetController
+            var newItem = budgetCtrl.addItem(input.type, input.description, input.value);
 
-        //3. Add the item to the UI
-        UICtrl.addListItem(newItem, input.type);
-        //4
+            //3. Add the item to the UI
+            UICtrl.addListItem(newItem, input.type);
 
-        //5
+            //4 Clear the field
+            UICtrl.clearField();
+
+            //5 Caculate and update budget
+            updateBudget();
+        }
+
     };
 
 
